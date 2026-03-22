@@ -3,16 +3,17 @@ import type { InternalEvent, InternalResult } from "@opennextjs/aws/types/open-n
 import type { AssetResolver } from "@opennextjs/aws/types/overrides.js";
 
 /**
- * Same as @opennextjs/cloudflare default asset resolver, but reads `env.STORED_ASSETS`
- * so Wrangler can use a non-reserved binding name on Cloudflare Pages.
+ * `STORED_ASSETS`: `wrangler deploy` / OpenNext (non-reserved binding name).
+ * `ASSETS`: Cloudflare Pages Advanced Mode (`_worker.js` in the static output dir).
  */
 const resolver: AssetResolver = {
   name: "cloudflare-stored-assets-resolver",
   async maybeGetAssetResult(event: InternalEvent): Promise<InternalResult | undefined> {
     const env = getCloudflareContext().env as {
       STORED_ASSETS?: { fetch(input: string | URL, init?: RequestInit): Promise<Response> };
+      ASSETS?: { fetch(input: string | URL, init?: RequestInit): Promise<Response> };
     };
-    const assets = env.STORED_ASSETS;
+    const assets = env.STORED_ASSETS ?? env.ASSETS;
     const runWorkerFirst = (globalThis as unknown as Record<string, boolean | string[] | undefined>)
       .__ASSETS_RUN_WORKER_FIRST__;
     if (!assets || !isUserWorkerFirst(runWorkerFirst, event.rawPath)) {
