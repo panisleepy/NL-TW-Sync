@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     if (password !== pwd) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
-    const jar = cookies();
+    const jar = await cookies();
     jar.set(ADMIN_COOKIE_NAME, "1", adminCookieOptions());
     return NextResponse.json({ ok: true });
   } catch (e) {

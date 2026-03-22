@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!isAdminSession()) {
+  if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {

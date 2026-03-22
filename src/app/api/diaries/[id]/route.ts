@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { isAdminSession } from "@/lib/admin";
 
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  if (!isAdminSession()) {
+  if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { id } = ctx.params;
+  const { id } = await ctx.params;
   try {
     const body = await req.json();
     const patch: Record<string, string | null> = {};
@@ -27,10 +27,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
-  if (!isAdminSession()) {
+  if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { id } = ctx.params;
+  const { id } = await ctx.params;
   try {
     const supabase = getSupabaseServer();
     const { error } = await supabase.from("diaries").delete().eq("id", id);

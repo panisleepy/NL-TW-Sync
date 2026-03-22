@@ -2,8 +2,9 @@ import { cookies } from "next/headers";
 
 const COOKIE = "tb_admin";
 
-export function isAdminSession(): boolean {
-  return cookies().get(COOKIE)?.value === "1";
+export async function isAdminSession(): Promise<boolean> {
+  const jar = await cookies();
+  return jar.get(COOKIE)?.value === "1";
 }
 
 export function adminCookieOptions() {
