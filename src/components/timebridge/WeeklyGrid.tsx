@@ -31,6 +31,8 @@ type Props = {
   filterUser: string | null;
   primaryZone: "taipei" | "amsterdam";
   admin: boolean;
+  /** 一般使用者：熱度可見，但 tooltip 不顯示他人暱稱 */
+  anonymousHeatmap?: boolean;
   pulseKeys: Set<string>;
   weekEmpty: boolean;
   onGestureComplete: (keys: string[], mode: "add" | "remove") => void;
@@ -44,6 +46,7 @@ export const WeeklyGrid = memo(function WeeklyGrid({
   filterUser,
   primaryZone,
   admin,
+  anonymousHeatmap = false,
   pulseKeys,
   weekEmpty,
   onGestureComplete,
@@ -102,9 +105,10 @@ export const WeeklyGrid = memo(function WeeklyGrid({
       const names = namesBySlot.get(k);
       const arr = names ? Array.from(names) : [];
       if (arr.length === 0) return "尚無人標示有空";
+      if (anonymousHeatmap) return `此時段共有 ${arr.length} 人標示有空（名單已隱藏）`;
       return `有空：${arr.join("、")}`;
     },
-    [namesBySlot],
+    [namesBySlot, anonymousHeatmap],
   );
 
   useEffect(() => {

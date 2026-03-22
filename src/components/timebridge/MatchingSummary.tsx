@@ -2,8 +2,15 @@
 
 import { useMemo } from "react";
 import type { AvailabilityRow } from "@/types/timebridge";
-import { formatMergedRangeInZone, mergedRangesForSummary, mergeUtcSlotKeys } from "@/lib/mergeTimeSlots";
+import {
+  formatMergedRangeInZone,
+  getContinuousRanges,
+  mergedRangesForSummary,
+  mergeUtcSlotKeysWithSlotMs,
+} from "@/lib/mergeTimeSlots";
 import { TZ_NL, TZ_TW, utcSlotKey } from "@/lib/timeUtils";
+
+const SLOT_MS_DEFAULT = 60 * 60 * 1000;
 
 function keysForName(rows: AvailabilityRow[], name: string): Set<string> {
   const s = new Set<string>();
@@ -40,32 +47,58 @@ export function MatchingSummary({
   onPulseKeys,
 }: Props) {
   const block = useMemo(() => {
-    if (admin && !filterUser) {
-      return { kind: "hint" as const };
-    }
-    if (!admin && !nickname.trim()) {
+    const nick = nickname.trim();
+
+    if (!admin && !nick) {
       return { kind: "hidden" as const };
     }
 
-    const aName = admin ? adminDisplayName : nickname.trim();
-    const bName = admin ? filterUser! : adminDisplayName;
-    const heading = admin ? `你與 ${filterUser} 重疊的時間` : `你與 ${adminDisplayName} 重疊的時間`;
+    if (!admin && nick === adminDisplayName) {
+      return { kind: "hidden" as const };
+    }
 
-    const merged = mergeUtcSlotKeys(intersectKeys(keysForName(rows, aName), keysForName(rows, bName)));
+    if (admin && filterUser && filterUser === adminDisplayName) {
+      return { kind: "hidden" as const };
+    }
+
+    if (admin && !filterUser) {
+      return { kind: "hint" as const };
+    }
+
+    const aName = admin ? adminDisplayName : nick;
+    const bName = admin ? filterUser! : adminDisplayName;
+    const overlapKeys = intersectKeys(keysForName(rows, aName), keysForName(rows, bName));
+    const merged = mergeUtcSlotKeysWithSlotMs(overlapKeys, SLOT_MS_DEFAULT);
     const summaryZone = admin ? TZ_NL : TZ_TW;
-    const displayRanges = mergedRangesForSummary(merged, summaryZone);
+    const displayRanges = mergedRangesForSummary(merged, summaryZone, SLOT_MS_DEFAULT);
     const lines = displayRanges.map((r) => formatMergedRangeInZone(r, summaryZone));
-    return { kind: "data" as const, heading, displayRanges, lines, summaryZone };
+    const mergedLine = getContinuousRanges(overlapKeys, summaryZone, 60);
+
+    const partnerLabel = admin
+      ? filterUser!
+      : /管理員/.test(adminDisplayName)
+        ? adminDisplayName
+        : `${adminDisplayName}（管理員）`;
+    const lead = `你與 ${partnerLabel} 的重疊時間：`;
+
+    return {
+      kind: "data" as const,
+      lead,
+      mergedLine,
+      displayRanges,
+      lines,
+      summaryZone,
+    };
   }, [rows, admin, adminDisplayName, nickname, filterUser]);
 
   if (block.kind === "hidden") return null;
 
   if (block.kind === "hint") {
     return (
-      <div className="rounded-2xl border border-[#E5E7EB] bg-white/80 p-4 shadow-sm tb-sidebar-glass">
-        <h3 className="text-sm font-semibold text-zinc-900">Matching Summary</h3>
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white/85 p-4 shadow-sm tb-sidebar-glass">
+        <h3 className="text-sm font-semibold text-zinc-900">重疊時間分析</h3>
         <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-          點選左側朋友名字，會顯示你與對方「同時有空」的時段（已合併連續格子）。點時間可讓網格對應格子閃爍提示。
+          請在左側朋友列表點選一位朋友，會顯示你與對方「同時有空」的合併時段。點下方區間可讓網格對應格子閃爍提示。
         </p>
       </div>
     );
@@ -73,31 +106,40 @@ export function MatchingSummary({
 
   if (block.kind !== "data") return null;
 
-  const { heading, displayRanges, lines, summaryZone } = block;
+  const { lead, mergedLine, displayRanges, lines, summaryZone } = block;
 
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white/80 p-4 shadow-sm tb-sidebar-glass">
-      <h3 className="text-sm font-semibold text-zinc-900">Matching Summary</h3>
-      <p className="mt-1 text-xs text-zinc-500">{heading}</p>
-      <p className="mt-0.5 text-[10px] text-zinc-400">
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white/85 p-4 shadow-sm tb-sidebar-glass">
+      <h3 className="text-sm font-semibold text-zinc-900">重疊時間分析</h3>
+      <p className="mt-1 text-sm text-zinc-700">{lead}</p>
+      <p className="mt-1 text-[10px] text-zinc-400">
         {summaryZone === TZ_NL ? "以下時間為阿姆斯特丹（AMS）當地" : "以下時間為台北（TPE）當地"}
       </p>
       {lines.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">目前沒有重疊時段。</p>
+        <p className="mt-3 text-sm text-zinc-600">目前沒有重疊時段。</p>
       ) : (
-        <ul className="mt-3 space-y-2 text-sm text-zinc-800">
-          {displayRanges.map((r, i) => (
-            <li key={`${r.start.toISOString()}-${i}`}>
-              <button
-                type="button"
-                className="text-left underline decoration-[#E5E7EB] underline-offset-2 transition hover:decoration-orange-400"
-                onClick={() => onPulseKeys(r.keys)}
-              >
-                {lines[i]}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mt-3 text-base font-bold leading-snug text-zinc-950">
+            <span className="mr-1.5" aria-hidden>
+              🕒
+            </span>
+            {mergedLine}
+          </p>
+          <p className="mt-2 text-[11px] font-medium text-zinc-500">點選區間以在網格上標示</p>
+          <ul className="mt-2 space-y-2 text-sm text-zinc-700">
+            {displayRanges.map((r, i) => (
+              <li key={`${r.start.toISOString()}-${i}`}>
+                <button
+                  type="button"
+                  className="text-left font-medium underline decoration-[#E5E7EB] underline-offset-2 transition hover:decoration-orange-400"
+                  onClick={() => onPulseKeys(r.keys)}
+                >
+                  {lines[i]}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

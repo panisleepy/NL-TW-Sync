@@ -31,8 +31,7 @@ type SidebarPanelsProps = {
   onOpenNick: () => void;
   admin: boolean;
   adminDisplayName: string;
-  displayRows: AvailabilityRow[];
-  onPulseKeys: (keys: string[]) => void;
+  otherFriendCount: number;
 };
 
 function SidebarPanels({
@@ -43,44 +42,52 @@ function SidebarPanels({
   onOpenNick,
   admin,
   adminDisplayName,
-  displayRows,
-  onPulseKeys,
+  otherFriendCount,
 }: SidebarPanelsProps) {
   return (
     <>
       <div className="rounded-[14px] border border-[#E5E7EB] bg-white/70 p-4 shadow-sm tb-sidebar-glass">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
           <Users className="h-4 w-4 text-zinc-600" />
-          朋友列表
+          {admin ? "朋友列表" : "本週參與"}
         </div>
-        <p className="mt-1 text-xs text-zinc-500">點名字可只看該人；再點「全部」回到熱圖。</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onSelectFilterUser(null)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              filterUser === null
-                ? "bg-zinc-900 text-white shadow-sm"
-                : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
-            }`}
-          >
-            全部（疊加）
-          </button>
-          {userNames.map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => onSelectFilterUser(filterUser === u ? null : u)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                filterUser === u
-                  ? "bg-zinc-900 text-white shadow-sm"
-                  : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
-              }`}
-            >
-              {u}
-            </button>
-          ))}
-        </div>
+        {admin ? (
+          <>
+            <p className="mt-1 text-xs text-zinc-500">點名字可只看該人；再點「全部」回到熱圖。</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectFilterUser(null)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  filterUser === null
+                    ? "bg-zinc-900 text-white shadow-sm"
+                    : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
+                }`}
+              >
+                全部（疊加）
+              </button>
+              {userNames.map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => onSelectFilterUser(filterUser === u ? null : u)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    filterUser === u
+                      ? "bg-zinc-900 text-white shadow-sm"
+                      : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 rounded-xl border border-dashed border-zinc-200/90 bg-zinc-50/80 px-3 py-2 text-xs leading-relaxed text-zinc-600">
+            目前線上有 <span className="font-semibold text-zinc-900">{otherFriendCount}</span>{" "}
+            位朋友已填寫此週。網格僅顯示匿名熱度，名單僅管理員可見。
+          </p>
+        )}
       </div>
       <div className="mt-4 rounded-[14px] border border-[#E5E7EB] bg-white/70 p-4 text-sm shadow-sm tb-sidebar-glass">
         <button type="button" className="text-zinc-800 underline-offset-2 hover:underline" onClick={onOpenNick}>
@@ -93,16 +100,6 @@ function SidebarPanels({
             <>暱稱存在此裝置（localStorage），免註冊即可持續編輯你的時段。</>
           )}
         </p>
-      </div>
-      <div className="mt-4">
-        <MatchingSummary
-          rows={displayRows}
-          admin={admin}
-          adminDisplayName={adminDisplayName}
-          nickname={nickname}
-          filterUser={filterUser}
-          onPulseKeys={onPulseKeys}
-        />
       </div>
     </>
   );
@@ -198,6 +195,10 @@ export function HomeClient() {
   }, [refreshSession]);
 
   useEffect(() => {
+    if (!admin) setFilterUser(null);
+  }, [admin]);
+
+  useEffect(() => {
     loadAvailability();
   }, [loadAvailability]);
 
@@ -273,6 +274,17 @@ export function HomeClient() {
     }
     return Array.from(s).sort((a, b) => a.localeCompare(b, "zh-Hant"));
   }, [availability]);
+
+  const otherFriendCount = useMemo(() => {
+    const me = nickname.trim();
+    const s = new Set<string>();
+    for (const r of availability) {
+      if (r.is_admin_blocked || r.user_name === ADMIN_BLOCK_USER) continue;
+      if (me && r.user_name === me) continue;
+      s.add(r.user_name);
+    }
+    return s.size;
+  }, [availability, nickname]);
 
   const displayRows = useMemo(() => {
     const base = availability.filter((r) => !r.is_admin_blocked);
@@ -550,8 +562,7 @@ export function HomeClient() {
             onOpenNick={() => setNickOpen(true)}
             admin={admin}
             adminDisplayName={adminDisplayName}
-            displayRows={displayRows}
-            onPulseKeys={triggerPulseKeys}
+            otherFriendCount={otherFriendCount}
           />
         </aside>
 
@@ -584,13 +595,25 @@ export function HomeClient() {
             rows={displayRows}
             draftKeys={draftKeys}
             effectiveName={effectiveName}
-            filterUser={filterUser}
+            filterUser={admin ? filterUser : null}
             primaryZone={admin ? "amsterdam" : "taipei"}
             admin={admin}
+            anonymousHeatmap={!admin}
             pulseKeys={pulseKeys}
             weekEmpty={weekEmpty}
             onGestureComplete={onGestureComplete}
           />
+
+          <div className="mt-4">
+            <MatchingSummary
+              rows={displayRows}
+              admin={admin}
+              adminDisplayName={adminDisplayName}
+              nickname={nickname}
+              filterUser={filterUser}
+              onPulseKeys={triggerPulseKeys}
+            />
+          </div>
 
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white/55 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.06)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-zinc-800">
@@ -765,7 +788,9 @@ export function HomeClient() {
           />
           <div className="fixed inset-x-0 bottom-0 z-50 max-h-[min(88vh,640px)] overflow-y-auto rounded-t-2xl border border-[#E5E7EB] bg-[#F9F8F3]/98 px-4 pb-10 pt-3 shadow-[0_-8px_40px_rgba(0,0,0,0.12)] tb-sidebar-glass lg:hidden">
             <div className="mb-3 flex items-center justify-between border-b border-[#E5E7EB] pb-2">
-              <span className="text-sm font-semibold text-zinc-900">朋友與重疊分析</span>
+              <span className="text-sm font-semibold text-zinc-900">
+                {admin ? "朋友與設定" : "設定與本週統計"}
+              </span>
               <button
                 type="button"
                 onClick={() => setMobilePanelOpen(false)}
@@ -783,8 +808,7 @@ export function HomeClient() {
               onOpenNick={() => setNickOpen(true)}
               admin={admin}
               adminDisplayName={adminDisplayName}
-              displayRows={displayRows}
-              onPulseKeys={triggerPulseKeys}
+              otherFriendCount={otherFriendCount}
             />
           </div>
         </>
@@ -794,7 +818,7 @@ export function HomeClient() {
         type="button"
         className="fixed bottom-5 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition hover:bg-zinc-800 lg:hidden"
         onClick={() => setMobilePanelOpen(true)}
-        aria-label="開啟朋友與重疊分析"
+        aria-label="開啟側邊欄"
       >
         <Menu className="h-6 w-6" />
       </button>
