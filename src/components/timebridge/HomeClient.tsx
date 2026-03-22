@@ -356,7 +356,7 @@ export function HomeClient() {
       }
       draftDirtyRef.current = false;
       setAvailability((prev) => {
-        let next = prev.filter((row) => {
+        const next = prev.filter((row) => {
           if (row.is_admin_blocked || row.user_name === ADMIN_BLOCK_USER) return true;
           if (row.user_name !== userName) return true;
           const k = utcSlotKey(new Date(row.utc_time_slot));
