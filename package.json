@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cf": "opennextjs-cloudflare build",
+    "build:cf": "opennextjs-cloudflare build --config wrangler.worker.json",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
+    "deploy": "opennextjs-cloudflare build --config wrangler.worker.json && opennextjs-cloudflare deploy --config wrangler.worker.json",
+    "preview": "opennextjs-cloudflare build --config wrangler.worker.json && opennextjs-cloudflare preview --config wrangler.worker.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.3",
