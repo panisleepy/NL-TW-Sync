@@ -280,9 +280,12 @@ export function HomeClient() {
     if (prevWeekStartRef.current !== weekStart) {
       prevWeekStartRef.current = weekStart;
       setAvailability([]);
+      // 避免因為快取不完整導致切換週後資料看似消失：切換到新週時強制重新抓取
+      availabilityCacheGlobal.delete(weekStart);
+      loadAvailability(true);
       draftDirtyRef.current = false;
     }
-  }, [weekStart]);
+  }, [weekStart, loadAvailability]);
 
   useEffect(() => {
     draftDirtyRef.current = false;
@@ -430,6 +433,8 @@ export function HomeClient() {
         return;
       }
       draftDirtyRef.current = false;
+      // 送出後作廢該週快取，避免舊快取在之後週切換時覆蓋
+      availabilityCacheGlobal.delete(weekStart);
       setAvailability((prev) => {
         const next = prev.filter((row) => {
           if (row.is_admin_blocked || row.user_name === ADMIN_BLOCK_USER) return true;
@@ -458,7 +463,6 @@ export function HomeClient() {
             week_number: meta.weekNumber,
           });
         }
-        availabilityCacheGlobal.set(weekStart, { at: Date.now(), rows: next });
         return next;
       });
       setLastUpdated(new Date());
