@@ -196,10 +196,10 @@ export const WeeklyGrid = memo(function WeeklyGrid({
           }}
         >
           <div
-            className="sticky left-0 z-20 flex flex-col justify-center gap-1 bg-white px-1 py-2 font-light text-[10px] leading-tight text-zinc-600 sm:px-1.5 sm:text-[11px]"
+            className="sticky left-0 z-20 flex flex-col justify-center gap-0.5 bg-white px-1 py-2 leading-snug text-zinc-800 sm:gap-1 sm:px-1.5 sm:py-2.5"
             style={{ gridColumn: 1, gridRow: 1 }}
           >
-            <span className="font-medium text-zinc-700">時間</span>
+            <span className="text-xs font-semibold tracking-tight sm:text-sm">時間</span>
             <span className="flex flex-wrap items-center gap-0.5 text-[8px] leading-tight sm:text-[9px]">
               {primaryZone === "amsterdam" ? (
                 <>
@@ -223,11 +223,11 @@ export const WeeklyGrid = memo(function WeeklyGrid({
           {DAYS.map((d, i) => (
             <div
               key={d}
-              className="flex flex-col items-center justify-center bg-[#FAFAF8] px-0.5 py-1.5 text-center font-light text-[9px] leading-tight text-zinc-700 sm:text-[10px]"
+              className="flex flex-col items-center justify-center gap-0.5 bg-[#FAFAF8] px-0.5 py-2 text-center leading-snug text-zinc-800 sm:py-2.5"
               style={{ gridColumn: i + 2, gridRow: 1 }}
             >
-              <span className="font-normal">{d}</span>
-              <span className="text-[8px] text-zinc-500 sm:text-[9px]">
+              <span className="text-xs font-semibold tracking-tight sm:text-sm">{d}</span>
+              <span className="text-[11px] font-medium tabular-nums text-zinc-600 sm:text-[13px]">
                 {dayLabels[i]?.slice(5).replace("-", "/")}
               </span>
             </div>
