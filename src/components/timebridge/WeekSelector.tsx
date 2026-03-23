@@ -112,25 +112,23 @@ export const WeekSelector = memo(function WeekSelector({ weeks, value, onChange 
                 onClick={() => handleSelectWeek(w.weekStartYmd)}
                 className={`relative isolate flex-shrink-0 snap-start overflow-hidden rounded-full border px-4 py-2 text-left transition ${
                   active
-                    ? "border-zinc-900/90 text-white shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
-                    : "border-zinc-200/90 bg-white/85 text-zinc-700 hover:border-zinc-400"
+                    ? "border-zinc-900/90 text-white shadow-[0_6px_18px_rgba(0,0,0,0.10)]"
+                    : "border-zinc-200/90 bg-white/78 text-zinc-700 hover:border-zinc-400"
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="week-active-pill"
                     className="pointer-events-none absolute inset-0 rounded-full bg-zinc-900"
-                    animate={{ scale: isMorphing ? 1.12 : 1 }}
+                    animate={{ scale: isMorphing ? [1, 1.16, 1] : 1 }}
                     transition={{
                       layout: { type: "spring", stiffness: 430, damping: 30, mass: 0.8 },
-                      scale: { type: "spring", stiffness: 420, damping: 24, mass: 0.65 },
+                      scale: { duration: 0.3, times: [0, 0.45, 1], ease: "easeOut" },
                     }}
                   />
                 )}
-                {!active && (
-                  <span className="pointer-events-none absolute inset-0 rounded-full bg-white/45 backdrop-blur-[2px]" />
-                )}
-                <span className={`relative z-[1] block text-[11px] font-semibold ${active ? "text-zinc-200" : "text-zinc-500"}`}>
+                {!active && <span className="pointer-events-none absolute inset-0 rounded-full bg-white/42" />}
+                <span className={`relative z-[1] block text-[11px] font-semibold ${active ? "text-white" : "text-zinc-500"}`}>
                   Week {w.isoWeekNumber}
                 </span>
                 <span className="relative z-[1] block text-xs tabular-nums">{w.label}</span>
