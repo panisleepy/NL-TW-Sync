@@ -12,15 +12,26 @@ import { WeekCell } from "./WeekCell";
 
 const DAYS = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"];
 
-function buildMaps(rows: AvailabilityRow[]) {
+function buildMaps(rows: AvailabilityRow[], adminDisplayName: string) {
   const namesBySlot = new Map<string, Set<string>>();
+  const regularCountBySlot = new Map<string, number>();
+  const hasAdminBySlot = new Map<string, boolean>();
   for (const r of rows) {
     if (r.is_admin_blocked) continue;
     const k = utcSlotKey(new Date(r.utc_time_slot));
     if (!namesBySlot.has(k)) namesBySlot.set(k, new Set());
     namesBySlot.get(k)!.add(r.user_name);
   }
-  return { namesBySlot };
+  namesBySlot.forEach((set, k) => {
+    const arr = Array.from(set);
+    const hasAdmin = arr.includes(adminDisplayName);
+    hasAdminBySlot.set(k, hasAdmin);
+    regularCountBySlot.set(
+      k,
+      arr.filter((name) => name !== adminDisplayName).length,
+    );
+  });
+  return { namesBySlot, regularCountBySlot, hasAdminBySlot };
 }
 
 type Props = {
@@ -28,6 +39,7 @@ type Props = {
   rows: AvailabilityRow[];
   draftKeys: Set<string>;
   effectiveName: string;
+  adminDisplayName: string;
   filterUser: string | null;
   primaryZone: "taipei" | "amsterdam";
   admin: boolean;
@@ -43,6 +55,7 @@ export const WeeklyGrid = memo(function WeeklyGrid({
   rows,
   draftKeys,
   effectiveName,
+  adminDisplayName,
   filterUser,
   primaryZone,
   admin,
@@ -64,19 +77,34 @@ export const WeeklyGrid = memo(function WeeklyGrid({
     return m;
   }, [slotMatrix]);
 
-  const { namesBySlot } = useMemo(() => buildMaps(rows), [rows]);
+  const { namesBySlot, regularCountBySlot, hasAdminBySlot } = useMemo(
+    () => buildMaps(rows, adminDisplayName),
+    [adminDisplayName, rows],
+  );
 
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
 
   const filterMode = Boolean(filterUser);
 
-  const countAt = useCallback(
+  const statsAt = useCallback(
     (k: string) => {
       const set = namesBySlot.get(k);
-      if (filterUser) return set?.has(filterUser) ? 1 : 0;
-      return set?.size ?? 0;
+      const total = set?.size ?? 0;
+      if (filterUser) {
+        const hit = Boolean(set?.has(filterUser));
+        return {
+          peopleCount: hit ? 1 : 0,
+          totalCount: hit ? 1 : 0,
+          hasAdmin: hit && filterUser === adminDisplayName,
+        };
+      }
+      return {
+        peopleCount: regularCountBySlot.get(k) ?? 0,
+        totalCount: total,
+        hasAdmin: hasAdminBySlot.get(k) ?? false,
+      };
     },
-    [namesBySlot, filterUser],
+    [adminDisplayName, filterUser, hasAdminBySlot, namesBySlot, regularCountBySlot],
   );
 
   const draftKeysRef = useRef(draftKeys);
@@ -105,10 +133,14 @@ export const WeeklyGrid = memo(function WeeklyGrid({
       const names = namesBySlot.get(k);
       const arr = names ? Array.from(names) : [];
       if (arr.length === 0) return "尚無人標示有空";
-      if (anonymousHeatmap) return `此時段共有 ${arr.length} 人標示有空（名單已隱藏）`;
+      if (anonymousHeatmap) {
+        const containsAdmin = arr.includes(adminDisplayName);
+        if (containsAdmin) return `此時段共有 ${arr.length} 人標示有空（含管理員，名單已隱藏）`;
+        return `此時段共有 ${arr.length} 人標示有空（名單已隱藏）`;
+      }
       return `有空：${arr.join("、")}`;
     },
-    [namesBySlot, anonymousHeatmap],
+    [adminDisplayName, anonymousHeatmap, namesBySlot],
   );
 
   useEffect(() => {
@@ -167,8 +199,8 @@ export const WeeklyGrid = memo(function WeeklyGrid({
 
   const axisHint =
     primaryZone === "taipei"
-      ? "網格以台北時間為準（綠底標示）；左側時間對齊格線，列為台北 00:00–23:59"
-      : "網格以阿姆斯特丹時間為準（藍底標示）；左側時間對齊格線，列為阿姆斯特丹 00:00–23:59";
+      ? "網格以台北時間為準（綠底標示）；左側時間對齊格線，列為台北 00:00–23:59。藍框表示該時段含管理員。"
+      : "網格以阿姆斯特丹時間為準（藍底標示）；左側時間對齊格線，列為阿姆斯特丹 00:00–23:59。藍框表示該時段含管理員。";
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#F9F8F3] p-1.5 shadow-sm sm:p-3 md:p-4">
@@ -265,12 +297,13 @@ export const WeeklyGrid = memo(function WeeklyGrid({
                   const cell = slotAt.get(`${dayIndex}-${hour}`);
                   if (!cell) return null;
                   const k = cell.key;
-                  const n = countAt(k);
+                  const { peopleCount, hasAdmin } = statsAt(k);
                   return (
                     <div key={k} className="min-h-0 min-w-0 bg-white" style={{ gridColumn: dayIndex + 2, gridRow: hour + 2 }}>
                       <WeekCell
                         utcKey={k}
-                        peopleCount={n}
+                        peopleCount={peopleCount}
+                        hasAdmin={hasAdmin}
                         filterMode={filterMode}
                         blocked={false}
                         preview={dragPreview?.has(k) ?? false}

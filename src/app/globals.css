@@ -94,6 +94,18 @@ body {
   );
 }
 
+/* 該時段含管理員時，額外疊一層藍色描邊/柔光做區分 */
+.tb-admin-presence::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(56, 189, 248, 0.75),
+    inset 0 0 10px rgba(96, 165, 250, 0.22);
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

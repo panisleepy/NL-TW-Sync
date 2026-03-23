@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { isAdminSession } from "@/lib/admin";
 
-export const runtime = "edge";
-
 export async function GET() {
   try {
     const supabase = getSupabaseServer();

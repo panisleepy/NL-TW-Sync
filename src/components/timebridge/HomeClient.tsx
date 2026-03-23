@@ -349,14 +349,12 @@ export function HomeClient() {
 
   const otherFriendCount = useMemo(() => {
     const me = nickname.trim();
-    const s = new Set<string>();
-    for (const r of availability) {
-      if (r.is_admin_blocked || r.user_name === ADMIN_BLOCK_USER) continue;
-      if (me && r.user_name === me) continue;
-      s.add(r.user_name);
-    }
-    return s.size;
-  }, [availability, nickname]);
+    return userNames.filter((name) => {
+      if (name === adminDisplayName) return false;
+      if (me && name === me) return false;
+      return true;
+    }).length;
+  }, [adminDisplayName, nickname, userNames]);
 
   const displayRows = useMemo(() => {
     const base = availability.filter((r) => !r.is_admin_blocked);
@@ -671,6 +669,7 @@ export function HomeClient() {
             rows={displayRows}
             draftKeys={draftKeys}
             effectiveName={effectiveName}
+            adminDisplayName={adminDisplayName}
             filterUser={admin ? filterUser : null}
             primaryZone={admin ? "amsterdam" : "taipei"}
             admin={admin}

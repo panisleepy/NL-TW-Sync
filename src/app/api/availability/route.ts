@@ -3,8 +3,6 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { getWeekAvailabilitySlotKeys, isoWeekMetaForUtc } from "@/lib/weekRange";
 import { utcSlotKey } from "@/lib/timeUtils";
 
-export const runtime = "edge";
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const weekStart = searchParams.get("weekStart");

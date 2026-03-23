@@ -5,6 +5,7 @@ import { memo } from "react";
 type Props = {
   utcKey: string;
   peopleCount: number;
+  hasAdmin: boolean;
   filterMode: boolean;
   blocked: boolean;
   preview: boolean;
@@ -16,7 +17,8 @@ type Props = {
   onPointerLeave: () => void;
 };
 
-function discreteBg(count: number, filterMode: boolean): string {
+function discreteBg(count: number, filterMode: boolean, hasAdmin: boolean): string {
+  if (hasAdmin && count <= 0) return "#DBEAFE";
   if (count <= 0) return "#FFFFFF";
   if (filterMode) return "#FFEDD5";
   if (count === 1) return "#FFEDD5";
@@ -27,6 +29,7 @@ function discreteBg(count: number, filterMode: boolean): string {
 export const WeekCell = memo(function WeekCell({
   utcKey,
   peopleCount,
+  hasAdmin,
   filterMode,
   blocked: blockedCell,
   preview,
@@ -37,7 +40,7 @@ export const WeekCell = memo(function WeekCell({
   onPointerMove,
   onPointerLeave,
 }: Props) {
-  const bg = blockedCell ? "#E5E7EB" : discreteBg(peopleCount, filterMode);
+  const bg = blockedCell ? "#E5E7EB" : discreteBg(peopleCount, filterMode, hasAdmin);
 
   return (
     <div
@@ -45,7 +48,7 @@ export const WeekCell = memo(function WeekCell({
       data-slot={utcKey}
       className={`relative h-full min-h-[1.5rem] min-w-0 cursor-pointer touch-manipulation rounded-none sm:min-h-[1.75rem] ${
         preview ? "ring-2 ring-zinc-800 ring-offset-0" : ""
-      } ${pulse ? "tb-slot-pulse" : ""} ${adminPickStripe ? "tb-admin-slot" : ""}`}
+      } ${pulse ? "tb-slot-pulse" : ""} ${adminPickStripe ? "tb-admin-slot" : ""} ${hasAdmin ? "tb-admin-presence" : ""}`}
       style={{
         backgroundColor: bg,
       }}

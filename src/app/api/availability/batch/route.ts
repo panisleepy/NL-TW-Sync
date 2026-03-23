@@ -3,8 +3,6 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { utcSlotKey } from "@/lib/timeUtils";
 import { isoWeekMetaForUtc } from "@/lib/weekRange";
 
-export const runtime = "edge";
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
