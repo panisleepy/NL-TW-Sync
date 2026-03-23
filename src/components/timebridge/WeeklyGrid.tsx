@@ -167,8 +167,8 @@ export const WeeklyGrid = memo(function WeeklyGrid({
 
   const axisHint =
     primaryZone === "taipei"
-      ? "列：台北 00:00–23:59（左欄為週一對照）"
-      : "列：阿姆斯特丹 00:00–23:59（左欄為週一對照）";
+      ? "左側時間對齊每列頂端格線（該整點區間起點）；列為台北 00:00–23:59"
+      : "左側時間對齊每列頂端格線（該整點區間起點）；列為阿姆斯特丹 00:00–23:59";
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#F9F8F3] p-1.5 shadow-sm sm:p-3 md:p-4">
@@ -236,7 +236,7 @@ export const WeeklyGrid = memo(function WeeklyGrid({
             return (
               <Fragment key={hour}>
                 <div
-                  className="sticky left-0 z-10 flex items-center bg-white px-1 py-0 font-extralight tabular-nums text-[9px] leading-none sm:text-[10px]"
+                  className="sticky left-0 z-10 flex items-start bg-white px-1 pb-0 pt-0.5 font-extralight tabular-nums text-[9px] leading-tight sm:text-[10px]"
                   style={{ gridColumn: 1, gridRow: hour + 2 }}
                 >
                   {primaryZone === "amsterdam" ? (
