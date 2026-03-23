@@ -23,7 +23,7 @@ export function DiaryWall({ rows, isAdmin, onEdit, onDelete }: Props) {
   return (
     <section className="mt-16">
       <h2 className="mb-6 text-center font-display text-2xl font-bold text-zinc-900">
-        拍立得日記牆
+        日記牆
       </h2>
       <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
         {sorted.map((d) => (

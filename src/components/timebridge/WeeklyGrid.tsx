@@ -167,8 +167,8 @@ export const WeeklyGrid = memo(function WeeklyGrid({
 
   const axisHint =
     primaryZone === "taipei"
-      ? "左側時間對齊每列頂端格線（該整點區間起點）；列為台北 00:00–23:59"
-      : "左側時間對齊每列頂端格線（該整點區間起點）；列為阿姆斯特丹 00:00–23:59";
+      ? "網格以台北時間為準（綠底標示）；左側時間對齊格線，列為台北 00:00–23:59"
+      : "網格以阿姆斯特丹時間為準（藍底標示）；左側時間對齊格線，列為阿姆斯特丹 00:00–23:59";
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#F9F8F3] p-1.5 shadow-sm sm:p-3 md:p-4">
@@ -196,22 +196,26 @@ export const WeeklyGrid = memo(function WeeklyGrid({
           }}
         >
           <div
-            className="sticky left-0 z-20 flex flex-col justify-center bg-white px-1 py-2 font-light text-[10px] leading-tight text-zinc-600 sm:px-1.5 sm:text-[11px]"
+            className="sticky left-0 z-20 flex flex-col justify-center gap-1 bg-white px-1 py-2 font-light text-[10px] leading-tight text-zinc-600 sm:px-1.5 sm:text-[11px]"
             style={{ gridColumn: 1, gridRow: 1 }}
           >
             <span className="font-medium text-zinc-700">時間</span>
-            <span className="text-[9px] leading-tight">
+            <span className="flex flex-wrap items-center gap-0.5 text-[8px] leading-tight sm:text-[9px]">
               {primaryZone === "amsterdam" ? (
                 <>
-                  <span className="font-semibold text-sky-700">AMS</span>
-                  <span className="text-zinc-400">|</span>
-                  <span className="text-zinc-500">TPE</span>
+                  <span className="rounded-md bg-sky-100 px-1 py-0.5 font-semibold text-sky-900 ring-1 ring-sky-200/90">
+                    AMS
+                  </span>
+                  <span className="text-zinc-300">|</span>
+                  <span className="rounded-md bg-zinc-100/90 px-1 py-0.5 text-zinc-600">TPE</span>
                 </>
               ) : (
                 <>
-                  <span className="text-zinc-500">AMS</span>
-                  <span className="text-zinc-400">|</span>
-                  <span className="font-semibold text-emerald-700">TPE</span>
+                  <span className="rounded-md bg-zinc-100/90 px-1 py-0.5 text-zinc-600">AMS</span>
+                  <span className="text-zinc-300">|</span>
+                  <span className="rounded-md bg-emerald-100 px-1 py-0.5 font-semibold text-emerald-900 ring-1 ring-emerald-200/90">
+                    TPE
+                  </span>
                 </>
               )}
             </span>
@@ -236,20 +240,24 @@ export const WeeklyGrid = memo(function WeeklyGrid({
             return (
               <Fragment key={hour}>
                 <div
-                  className="sticky left-0 z-10 flex items-start bg-white px-1 pb-0 pt-0.5 font-extralight tabular-nums text-[9px] leading-tight sm:text-[10px]"
+                  className="sticky left-0 z-10 flex items-start gap-0.5 bg-white px-0.5 pb-0 pt-0.5 font-extralight tabular-nums text-[9px] leading-tight sm:gap-1 sm:px-1 sm:text-[10px]"
                   style={{ gridColumn: 1, gridRow: hour + 2 }}
                 >
                   {primaryZone === "amsterdam" ? (
                     <>
-                      <span className="font-medium text-sky-700">{nl}</span>
-                      <span className="mx-px text-zinc-300">|</span>
-                      <span className="font-extralight text-zinc-500">{tw}</span>
+                      <span className="rounded px-1 py-px font-medium tabular-nums text-sky-900 ring-1 ring-sky-200/80 bg-sky-50/95">
+                        {nl}
+                      </span>
+                      <span className="pt-px text-zinc-300">|</span>
+                      <span className="pt-px font-extralight tabular-nums text-zinc-500">{tw}</span>
                     </>
                   ) : (
                     <>
-                      <span className="font-extralight text-zinc-500">{nl}</span>
-                      <span className="mx-px text-zinc-300">|</span>
-                      <span className="font-medium text-emerald-700">{tw}</span>
+                      <span className="pt-px font-extralight tabular-nums text-zinc-500">{nl}</span>
+                      <span className="pt-px text-zinc-300">|</span>
+                      <span className="rounded px-1 py-px font-medium tabular-nums text-emerald-900 ring-1 ring-emerald-200/80 bg-emerald-50/95">
+                        {tw}
+                      </span>
                     </>
                   )}
                 </div>
