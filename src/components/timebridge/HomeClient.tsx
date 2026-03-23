@@ -53,6 +53,10 @@ function SidebarPanels({
   adminDisplayName,
   otherFriendCount,
 }: SidebarPanelsProps) {
+  const sidebarList = admin
+    ? Array.from(new Set([adminDisplayName, ...userNames]))
+    : userNames;
+
   return (
     <>
       <div className="rounded-[14px] border border-[#E5E7EB] bg-white/70 p-4 shadow-sm tb-sidebar-glass">
@@ -75,7 +79,7 @@ function SidebarPanels({
               >
                 全部（疊加）
               </button>
-              {userNames.map((u) => (
+              {sidebarList.map((u) => (
                 <button
                   key={u}
                   type="button"
@@ -83,10 +87,12 @@ function SidebarPanels({
                   className={`rounded-full px-3 py-1 text-xs font-medium ${
                     filterUser === u
                       ? "bg-zinc-900 text-white shadow-sm"
-                      : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
+                      : u === adminDisplayName
+                        ? "border border-sky-200/90 bg-sky-50/85 text-sky-900 backdrop-blur-sm"
+                        : "border border-zinc-200/90 bg-white/80 text-zinc-800 backdrop-blur-sm"
                   }`}
                 >
-                  {u}
+                  {u === adminDisplayName ? `${u}（管理員）` : u}
                 </button>
               ))}
             </div>
@@ -350,11 +356,10 @@ export function HomeClient() {
   const otherFriendCount = useMemo(() => {
     const me = nickname.trim();
     return userNames.filter((name) => {
-      if (name === adminDisplayName) return false;
       if (me && name === me) return false;
       return true;
     }).length;
-  }, [adminDisplayName, nickname, userNames]);
+  }, [nickname, userNames]);
 
   const displayRows = useMemo(() => {
     const base = availability.filter((r) => !r.is_admin_blocked);
