@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { isAdminSession } from "@/lib/admin";
 
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const supabase = getSupabaseServer();
@@ -11,7 +13,10 @@ export async function GET() {
       .order("event_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return NextResponse.json({ rows: data ?? [] });
+    return NextResponse.json(
+      { rows: data ?? [] },
+      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
+    );
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Supabase unavailable" }, { status: 503 });

@@ -3,6 +3,8 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { getWeekAvailabilitySlotKeys, isoWeekMetaForUtc } from "@/lib/weekRange";
 import { utcSlotKey } from "@/lib/timeUtils";
 
+export const runtime = "edge";
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const weekStart = searchParams.get("weekStart");
@@ -14,7 +16,10 @@ export async function GET(req: Request) {
     const keys = getWeekAvailabilitySlotKeys(weekStart);
     const { data, error } = await supabase.from("availability").select("*").in("utc_time_slot", keys);
     if (error) throw error;
-    return NextResponse.json({ rows: data ?? [] });
+    return NextResponse.json(
+      { rows: data ?? [] },
+      { headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" } },
+    );
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Supabase unavailable" }, { status: 503 });

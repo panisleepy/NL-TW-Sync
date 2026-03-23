@@ -5,6 +5,8 @@ import { ADMIN_BLOCK_USER } from "@/types/timebridge";
 import { utcSlotKey } from "@/lib/timeUtils";
 import { isoWeekMetaForUtc } from "@/lib/weekRange";
 
+export const runtime = "edge";
+
 export async function POST(req: Request) {
   if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

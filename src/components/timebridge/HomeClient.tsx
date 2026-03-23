@@ -23,6 +23,15 @@ function extractKeysForUser(rows: AvailabilityRow[], name: string): Set<string> 
   return s;
 }
 
+/** 全域快取（跨 Strict Mode 重掛載仍可 dedupe） */
+const SESSION_CACHE: { at: number; admin: boolean } | null = null;
+let sessionCacheGlobal: { at: number; admin: boolean } | null = SESSION_CACHE;
+let sessionInFlightGlobal: Promise<void> | null = null;
+let diariesCacheGlobal: { at: number; rows: DiaryRow[] } | null = null;
+let diariesInFlightGlobal: Promise<void> | null = null;
+const availabilityCacheGlobal = new Map<string, { at: number; rows: AvailabilityRow[] }>();
+const availabilityInFlightGlobal = new Map<string, Promise<void>>();
+
 type SidebarPanelsProps = {
   userNames: string[];
   filterUser: string | null;
@@ -84,8 +93,7 @@ function SidebarPanels({
           </>
         ) : (
           <p className="mt-3 rounded-xl border border-dashed border-zinc-200/90 bg-zinc-50/80 px-3 py-2 text-xs leading-relaxed text-zinc-600">
-            目前線上有 <span className="font-semibold text-zinc-900">{otherFriendCount}</span>{" "}
-            位朋友已填寫此週。網格僅顯示匿名熱度，名單僅管理員可見。
+            目前有 <span className="font-semibold text-zinc-900">{otherFriendCount}</span> 位朋友已填寫此週。
           </p>
         )}
       </div>
@@ -97,7 +105,7 @@ function SidebarPanels({
           {admin ? (
             <>已登入管理時，格子以「{adminDisplayName}」寫入有空時段，不會再用你的暱稱。</>
           ) : (
-            <>暱稱存在此裝置（localStorage），免註冊即可持續編輯你的時段。</>
+            <>暱稱存在此裝置，免註冊即可持續編輯你的時段。</>
           )}
         </p>
       </div>
@@ -106,6 +114,7 @@ function SidebarPanels({
 }
 
 export function HomeClient() {
+  const CACHE_TTL_MS = 30_000;
   const adminDisplayName = useMemo(
     () => (process.env.NEXT_PUBLIC_ADMIN_DISPLAY_NAME ?? "Hami（管理員）").trim(),
     [],
@@ -146,6 +155,11 @@ export function HomeClient() {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
     return Boolean(typeof process !== "undefined" && url && key);
   }, []);
+  const weeks = useMemo(() => enumerateWeeksInSeason(), []);
+  const currentWeekOption = useMemo(
+    () => weeks.find((w) => w.weekStartYmd === weekStart) ?? null,
+    [weeks, weekStart],
+  );
 
   useEffect(() => {
     try {
@@ -157,37 +171,87 @@ export function HomeClient() {
     }
   }, []);
 
-  const refreshSession = useCallback(async () => {
-    try {
-      const r = await fetch("/api/auth/session");
-      const j = await r.json();
-      setAdmin(Boolean(j.admin));
-    } catch {
-      setAdmin(false);
+  const refreshSession = useCallback(async (force = false) => {
+    const now = Date.now();
+    const cached = sessionCacheGlobal;
+    if (!force && cached && now - cached.at < CACHE_TTL_MS) {
+      setAdmin(cached.admin);
+      return;
     }
+    if (sessionInFlightGlobal) return sessionInFlightGlobal;
+    const req = (async () => {
+      try {
+        const r = await fetch("/api/auth/session", { cache: "no-store" });
+        const j = await r.json();
+        const adminSession = Boolean(j.admin);
+        sessionCacheGlobal = { at: Date.now(), admin: adminSession };
+        setAdmin(adminSession);
+      } catch {
+        setAdmin(false);
+      } finally {
+        sessionInFlightGlobal = null;
+      }
+    })();
+    sessionInFlightGlobal = req;
+    return req;
   }, []);
 
-  const loadAvailability = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/availability?weekStart=${encodeURIComponent(weekStart)}`);
-      if (!r.ok) throw new Error();
-      const j = await r.json();
-      setAvailability(j.rows ?? []);
-      setLastUpdated(new Date());
-    } catch {
-      setConfigError(true);
-    }
-  }, [weekStart]);
+  const loadAvailability = useCallback(
+    async (force = false) => {
+      const key = weekStart;
+      const now = Date.now();
+      const cached = availabilityCacheGlobal.get(key);
+      if (!force && cached && now - cached.at < CACHE_TTL_MS) {
+        setAvailability(cached.rows);
+        return;
+      }
+      const inFlight = availabilityInFlightGlobal.get(key);
+      if (inFlight) return inFlight;
+      const req = (async () => {
+        try {
+          const r = await fetch(`/api/availability?weekStart=${encodeURIComponent(weekStart)}`, { cache: "no-store" });
+          if (!r.ok) throw new Error();
+          const j = await r.json();
+          const rows = (j.rows ?? []) as AvailabilityRow[];
+          availabilityCacheGlobal.set(key, { at: Date.now(), rows });
+          setAvailability(rows);
+          setLastUpdated(new Date());
+        } catch {
+          setConfigError(true);
+        } finally {
+          availabilityInFlightGlobal.delete(key);
+        }
+      })();
+      availabilityInFlightGlobal.set(key, req);
+      return req;
+    },
+    [weekStart],
+  );
 
-  const loadDiaries = useCallback(async () => {
-    try {
-      const r = await fetch("/api/diaries");
-      if (!r.ok) throw new Error();
-      const j = await r.json();
-      setDiaries(j.rows ?? []);
-    } catch {
-      setConfigError(true);
+  const loadDiaries = useCallback(async (force = false) => {
+    const now = Date.now();
+    const cached = diariesCacheGlobal;
+    if (!force && cached && now - cached.at < CACHE_TTL_MS) {
+      setDiaries(cached.rows);
+      return;
     }
+    if (diariesInFlightGlobal) return diariesInFlightGlobal;
+    const req = (async () => {
+      try {
+        const r = await fetch("/api/diaries", { cache: "no-store" });
+        if (!r.ok) throw new Error();
+        const j = await r.json();
+        const rows = (j.rows ?? []) as DiaryRow[];
+        diariesCacheGlobal = { at: Date.now(), rows };
+        setDiaries(rows);
+      } catch {
+        setConfigError(true);
+      } finally {
+        diariesInFlightGlobal = null;
+      }
+    })();
+    diariesInFlightGlobal = req;
+    return req;
   }, []);
 
   useEffect(() => {
@@ -228,7 +292,7 @@ export function HomeClient() {
   const scheduleAvailabilitySync = useCallback(() => {
     if (availRtTimer.current) clearTimeout(availRtTimer.current);
     availRtTimer.current = setTimeout(() => {
-      loadAvailability();
+      loadAvailability(true);
       setLastUpdated(new Date());
     }, 420);
   }, [loadAvailability]);
@@ -241,31 +305,39 @@ export function HomeClient() {
     } catch {
       return undefined;
     }
+    const weekFilter = currentWeekOption?.isoWeekNumber;
     const ch1 = sb
-      .channel("tb-availability")
+      .channel(`tb-availability-${weekFilter ?? "all"}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "availability" },
+        {
+          event: "*",
+          schema: "public",
+          table: "availability",
+          ...(weekFilter != null ? { filter: `week_number=eq.${weekFilter}` } : {}),
+        },
         () => scheduleAvailabilitySync(),
       )
       .subscribe();
     const ch2 = sb
-      .channel("tb-diaries")
+      .channel("tb-diaries-cache")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "diaries" },
         () => {
-          loadDiaries();
+          loadDiaries(true);
           setLastUpdated(new Date());
         },
       )
       .subscribe();
     return () => {
       if (availRtTimer.current) clearTimeout(availRtTimer.current);
+      ch1.unsubscribe();
+      ch2.unsubscribe();
       sb.removeChannel(ch1);
       sb.removeChannel(ch2);
     };
-  }, [hasEnv, loadDiaries, scheduleAvailabilitySync]);
+  }, [currentWeekOption?.isoWeekNumber, hasEnv, loadDiaries, scheduleAvailabilitySync]);
 
   const userNames = useMemo(() => {
     const s = new Set<string>();
@@ -351,7 +423,7 @@ export function HomeClient() {
         body: JSON.stringify({ userName, adds, removes }),
       });
       if (!r.ok) {
-        await loadAvailability();
+        await loadAvailability(true);
         return;
       }
       draftDirtyRef.current = false;
@@ -383,11 +455,12 @@ export function HomeClient() {
             week_number: meta.weekNumber,
           });
         }
+        availabilityCacheGlobal.set(weekStart, { at: Date.now(), rows: next });
         return next;
       });
       setLastUpdated(new Date());
     },
-    [loadAvailability],
+    [loadAvailability, weekStart],
   );
 
   const onGestureComplete = useCallback((keys: string[], mode: "add" | "remove") => {
@@ -424,7 +497,7 @@ export function HomeClient() {
     if (r.ok) {
       setLoginPwd("");
       setLoginOpen(false);
-      await refreshSession();
+      await refreshSession(true);
     } else {
       alert("密碼錯誤或未設定 ADMIN_PASSWORD");
     }
@@ -432,7 +505,7 @@ export function HomeClient() {
 
   const adminLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    await refreshSession();
+    await refreshSession(true);
   };
 
   const submitDiary = async () => {
@@ -445,7 +518,7 @@ export function HomeClient() {
       if (r.ok) {
         setEditingId(null);
         setDiaryForm({ title: "", content: "", image_url: "", event_date: "" });
-        await loadDiaries();
+        await loadDiaries(true);
       }
       return;
     }
@@ -456,7 +529,7 @@ export function HomeClient() {
     });
     if (r.ok) {
       setDiaryForm({ title: "", content: "", image_url: "", event_date: "" });
-      await loadDiaries();
+      await loadDiaries(true);
     }
   };
 
@@ -473,10 +546,8 @@ export function HomeClient() {
   const onDeleteDiary = async (id: string) => {
     if (!confirm("確定刪除這則日記？")) return;
     await fetch(`/api/diaries/${id}`, { method: "DELETE" });
-    await loadDiaries();
+    await loadDiaries(true);
   };
-
-  const weeks = useMemo(() => enumerateWeeksInSeason(), []);
 
   return (
     <div className="tb-paper min-h-screen pb-28 text-zinc-900 lg:pb-20">
@@ -502,7 +573,7 @@ export function HomeClient() {
                   type="button"
                   title="重新整理資料"
                   className="rounded-full p-1 text-zinc-500 transition hover:bg-zinc-200/80 hover:text-zinc-900"
-                  onClick={() => loadAvailability()}
+                  onClick={() => loadAvailability(true)}
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </button>
@@ -514,7 +585,12 @@ export function HomeClient() {
                 <button
                   type="button"
                   onClick={() => setLoginOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-zinc-300/90 bg-white/80 px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur-md"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-900 shadow-[0_8px_22px_rgba(0,0,0,0.16)] backdrop-blur-md"
+                  style={{
+                    backgroundImage: "url('/images/bg-rainbow.png')",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
                 >
                   <Lock className="h-4 w-4" />
                   管理模式
