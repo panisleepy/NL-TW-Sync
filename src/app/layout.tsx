@@ -32,9 +32,11 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant">
       <body
-        className={`${nunito.variable} ${notoSansTc.variable} ${xiaoWei.variable} font-sans antialiased`}
+        className={`${nunito.variable} ${notoSansTc.variable} ${xiaoWei.variable} relative min-h-screen font-sans antialiased`}
       >
-        {children}
+        {/* 固定底層：確保 mesh 不被內容區塊吃掉；圖檔放 public/images/bg-mesh.png → /images/bg-mesh.png */}
+        <div className="tb-mesh-bg" aria-hidden />
+        <div className="relative z-[1] min-h-screen">{children}</div>
       </body>
     </html>
   );
